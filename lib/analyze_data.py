@@ -126,13 +126,13 @@ def initial_guess_fractional_kelvin_voigt(x_data, y_data):
 def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None):
     if initial_guess is None:
         initial_guess = initial_guess_fractional_kelvin_voigt(x_data, y_data)
-    pysical_constraints = ({'type': 'ineq', 'fun': lambda x: np.min(x)},{'type': 'ineq', 'fun': lambda x: min([1-x[2],1-x[3]])})
+    #pysical_constraints = ({'type': 'ineq', 'fun': lambda x: np.min(x)},{'type': 'ineq', 'fun': lambda x: min([1-x[2],1-x[3]])})
     def target_funciton(x,*params):
         return PSD(x,G_fractional_Kelvin_Voigt,params)
-    result_COBYLA = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='COBYLA', constraints=pysical_constraints)
-    result = minimize(Laplace_NLL, result_COBYLA.x, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
-    if min(result.x) < 0 or min([1-result.x[2],1-result.x[3]]) < 0:
-        result = result_COBYLA
+    #result_COBYLA = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='COBYLA', constraints=pysical_constraints)
+    result = minimize(Laplace_NLL,initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
+    #if min(result.x) < 0 or min([1-result.x[2],1-result.x[3]]) < 0:
+    #    result = result_COBYLA
     return result
 
 
@@ -178,7 +178,11 @@ def find_maximum_difference(arr: np.ndarray):
 
 def find_max_evidence_peak(peaks,surprise, max_peak_percentage):
     #print(max_peak_percentage)
-    prior = max(0,sorted(surprise)[int(len(surprise)*max_peak_percentage)])
+    assert 0 <= max_peak_percentage <= 1, "max_peak_percentage must be between 0 and 1"
+    if max_peak_percentage == 1:
+        prior = 0
+    else:
+        prior = max(0,sorted(surprise)[int(len(surprise)*max_peak_percentage)])
     peak_ineces = get_peak_indices(peaks)
     sup = copy.deepcopy(surprise)-prior
     sup[peak_ineces] = -sup[peak_ineces]
