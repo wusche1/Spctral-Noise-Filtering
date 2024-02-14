@@ -26,17 +26,20 @@ def powerspectrum(trajectory, dt, k_max=None):
         
     return f_ks, power_spectrum
 
-def Laplace_NLL(params, x_data, y_data, function):
-    return np.sum(Laplace_NLL_array(params, x_data, y_data, function))
+def Laplace_NLL(params, x_data, y_data, function, log_weighted = False):
+    return np.sum(Laplace_NLL_array(params, x_data, y_data, function, log_weighted = log_weighted))
 
-def Laplace_NLL_array(params, x_data, y_data, function):
+def Laplace_NLL_array(params, x_data, y_data, function, log_weighted = False):
     y_model = function(x_data, *params)
-    #weights = 1.0 / np.arange(1, len(x_data) + 1)
+    if log_weighted:
+        weights = 1.0 / np.arange(1, len(x_data) + 1)
     Loss = y_data / y_model + np.log(y_model)
-    NLL = Loss #* weights
+    NLL = Loss
+    if log_weighted:
+        NLL = NLL*weights
     return NLL
 
-def get_surprise(x_data, y_data, fitted_function, params):
+def get_surprise(x_data, y_data, fitted_function, params, log_weighted = False):
     # Compute model predictions for all data points at once
     y_model = fitted_function(x_data, params)
     
@@ -46,10 +49,13 @@ def get_surprise(x_data, y_data, fitted_function, params):
     # Compute expected NLL for all data points at once
     expected_Loss = 1 + np.log(y_model)
 
-    #weights = 1.0 / np.arange(1, len(x_data) + 1)
+    if log_weighted:
+        weights = 1.0 / np.arange(1, len(x_data) + 1)
+        expected_Loss = expected_Loss*weights
 
     # Calculate surprise for all data points at once
-    surprise = (Loss - expected_Loss)#*weights
+    surprise = (Loss - expected_Loss)
+
     
     return surprise * np.log(2)
 
@@ -64,14 +70,16 @@ def initial_guess_maxwell(x_data, y_data):
         A_guesses.append(y*x**2/2)
     A = np.mean(A_guesses)
     return np.array([A, 1,noise])
-def fit_maxwell(x_data, y_data, initial_guess = None):
+def fit_maxwell(x_data, y_data, initial_guess = None, log_weighted = False):
     if initial_guess is None:
         initial_guess = initial_guess_maxwell(x_data, y_data)
     def target_funciton(x,*params):
         return PSD(x,G_Maxwell,params)
-    result = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
+    result = minimize(lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted=log_weighted), 
+                  initial_guess, 
+                  method='Nelder-Mead')
     return result
-def initial_guess_kelvin_voigt(x_data, y_data):
+def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
     noise = np.mean(y_data[-10:])
     B_over_A_square_2 = np.mean(y_data[:10])
 
@@ -81,19 +89,21 @@ def initial_guess_kelvin_voigt(x_data, y_data):
     begin = np.exp(np.log(np.min(x_data)) + (np.log(np.max(x_data)) - np.log(np.min(x_data)))/3)
     offset_initial = B_over_A_square_2 * (begin**2)
     p_0 = [noise,B_over_A_square_2, offset_initial]
-    result = minimize(Laplace_NLL, p_0, args=(x_data, y_data, localy_linear_approximation), method='Nelder-Mead')
+    result = minimize(lambda params: Laplace_NLL(params, x_data, y_data, localy_linear_approximation, log_weighted=log_weighted), 
+                  p_0, 
+                  method='Nelder-Mead')
     [noise,B_over_A_square_2, offset] = result.x
     B=2/offset
     A = 1/np.sqrt(0.5*B_over_A_square_2/B)
 
     return np.array([A, B, noise])
 
-def fit_kelvin_voigt(x_data, y_data, initial_guess = None):
+def fit_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False ):
     if initial_guess is None:
         initial_guess = initial_guess_kelvin_voigt(x_data, y_data)
     def target_funciton(x,*params):
         return PSD(x,G_Kelvin_Voigt,params)
-    result = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
+    result = minimize( lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
     return result
 def initial_guess_localy_linear_fractional_kelvin_voigt(x_data, y_data):
     quaters = np.logspace(np.log10(min(x_data)), np.log10(max(x_data)), 4)
@@ -123,14 +133,15 @@ def initial_guess_fractional_kelvin_voigt(x_data, y_data):
     return np.array([A,B,alpha,beta,noise])
 
 
-def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None):
+def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False):
     if initial_guess is None:
         initial_guess = initial_guess_fractional_kelvin_voigt(x_data, y_data)
     #pysical_constraints = ({'type': 'ineq', 'fun': lambda x: np.min(x)},{'type': 'ineq', 'fun': lambda x: min([1-x[2],1-x[3]])})
     def target_funciton(x,*params):
         return PSD(x,G_fractional_Kelvin_Voigt,params)
     #result_COBYLA = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='COBYLA', constraints=pysical_constraints)
-    result = minimize(Laplace_NLL,initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
+    result = minimize(lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
+    #minimize(Laplace_NLL,initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
     #if min(result.x) < 0 or min([1-result.x[2],1-result.x[3]]) < 0:
     #    result = result_COBYLA
     return result

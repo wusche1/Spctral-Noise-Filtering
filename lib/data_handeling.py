@@ -3,7 +3,7 @@ from analyze_data import *
 import numpy as np
 
 class Data:
-    def __init__(self, t, x, name=None, typical_peak_number = 0.05, max_peak_percentage = .95,prior_maxwell=1/3, prior_kelvin_voigt=1/3, prior_fractional_kelvin_voigt=1/3):
+    def __init__(self, t, x, name=None, typical_peak_number = 0.05, max_peak_percentage = .95,prior_maxwell=1/3, prior_kelvin_voigt=1/3, prior_fractional_kelvin_voigt=1/3, log_weighted = False):
         self.t = t
         self.x = x
         self.name = name
@@ -31,6 +31,7 @@ class Data:
 
         self.typical_peak_number = typical_peak_number
         self.max_peak_percentage = max_peak_percentage 
+        self.log_weighted = log_weighted
 
         self.fit_function = None
         self.fit_params = None
@@ -59,32 +60,32 @@ class Data:
         self.create_PSD()  # Create the PSD first
         if self.initial_guess_maxwell is None:
             self.create_initial_guess_maxwell()
-        self.fit_maxwell = fit_maxwell(self.frequencies, self.PSD, self.initial_guess_maxwell)
+        self.fit_maxwell = fit_maxwell(self.frequencies, self.PSD, self.initial_guess_maxwell, log_weighted=self.log_weighted)
 
     def create_NLL_maxwell(self):
         # Implement the logic to create the NLL for the Maxwell model
         if self.fit_maxwell is None:
             self.create_fit_maxwell()
         target_function = lambda x, *params: PSD(x, G_Maxwell, params)
-        self.NLL_maxwell = Laplace_NLL(self.fit_maxwell.x, self.frequencies, self.PSD, target_function)
+        self.NLL_maxwell = Laplace_NLL(self.fit_maxwell.x, self.frequencies, self.PSD, target_function, log_weighted=self.log_weighted)
 
     def create_initial_guess_kelvin_voigt(self):
         # Implement the logic to create the initial guess for the Kelvin-Voigt model
-        self.initial_guess_kelvin_voigt = initial_guess_kelvin_voigt(self.frequencies, self.PSD)
+        self.initial_guess_kelvin_voigt = initial_guess_kelvin_voigt(self.frequencies, self.PSD, log_weighted=self.log_weighted)
 
     def create_fit_kelvin_voigt(self):
         # Implement the logic to create the fit for the Kelvin-Voigt model
         self.create_PSD()  # Create the PSD first
         if self.initial_guess_kelvin_voigt is None:
             self.create_initial_guess_kelvin_voigt()
-        self.fit_kelvin_voigt = fit_kelvin_voigt(self.frequencies, self.PSD, self.initial_guess_kelvin_voigt)
+        self.fit_kelvin_voigt = fit_kelvin_voigt(self.frequencies, self.PSD, self.initial_guess_kelvin_voigt, log_weighted=self.log_weighted)
 
     def create_NLL_kelvin_voigt(self):
         # Implement the logic to create the NLL for the Kelvin-Voigt model
         if self.fit_kelvin_voigt is None:
             self.create_fit_kelvin_voigt()
         target_function = lambda x, *params: PSD(x, G_Kelvin_Voigt, params)
-        self.NLL_kelvin_voigt = Laplace_NLL(self.fit_kelvin_voigt.x, self.frequencies, self.PSD, target_function)
+        self.NLL_kelvin_voigt = Laplace_NLL(self.fit_kelvin_voigt.x, self.frequencies, self.PSD, target_function, log_weighted=self.log_weighted)
 
     def create_initial_guess_fractional_kelvin_voigt(self):
         # Implement the logic to create the initial guess for the Fractional Kelvin-Voigt model
@@ -96,7 +97,8 @@ class Data:
         if self.initial_guess_fractional_kelvin_voigt is None:
             self.create_initial_guess_fractional_kelvin_voigt()
         self.fit_fractional_kelvin_voigt = fit_fractional_kelvin_voigt(self.frequencies, self.PSD,
-                                                                       self.initial_guess_fractional_kelvin_voigt)
+                                                                       self.initial_guess_fractional_kelvin_voigt
+                                                                       , log_weighted=self.log_weighted)
 
     def create_NLL_fractional_kelvin_voigt(self):
         # Implement the logic to create the NLL for the Fractional Kelvin-Voigt model
@@ -104,7 +106,8 @@ class Data:
             self.create_fit_fractional_kelvin_voigt()
         target_function = lambda x, *params: PSD(x, G_fractional_Kelvin_Voigt, params)
         self.NLL_fractional_kelvin_voigt = Laplace_NLL(self.fit_fractional_kelvin_voigt.x, self.frequencies, self.PSD,
-                                                       target_function)
+                                                       target_function,
+                                                       log_weighted=self.log_weighted)
 
     def bayesian_update(self):
         if self.NLL_maxwell is None:
@@ -116,10 +119,13 @@ class Data:
 
         # Implement the logic to update the prior probabilities
         # Use the Bayesian Information Criterion to calculate the posterior probability
+            
+        n_eff = len(self.PSD) if not self.log_weighted else np.sum(1/np.arange(1,len(self.PSD)+1))
+        # ref: Weighted likelihood mixture modeling and mode based clustering, 2018, eq 11
 
-        BIC_maxwell = 2 * np.log(len(self.PSD)) + 2 * self.NLL_maxwell
-        BIC_kelvin_voigt = 3 * np.log(len(self.PSD)) + 2 * self.NLL_kelvin_voigt
-        BIC_fractional_kelvin_voigt = 5 * np.log(len(self.PSD)) + 2 * self.NLL_fractional_kelvin_voigt
+        BIC_maxwell = 2 * np.log(n_eff) + 2 * self.NLL_maxwell 
+        BIC_kelvin_voigt = 3 * np.log(n_eff) + 2 * self.NLL_kelvin_voigt
+        BIC_fractional_kelvin_voigt = 5 * np.log(n_eff) + 2 * self.NLL_fractional_kelvin_voigt
 
         #subtract the minimum BIC from all BICs
         min_BIC = min(BIC_maxwell, BIC_kelvin_voigt, BIC_fractional_kelvin_voigt)
@@ -161,12 +167,12 @@ class Data:
         filtered_PSD = self.PSD[filtered_idx]
 
         if self.posterior_fractional_kelvin_voigt > self.posterior_maxwell and self.posterior_fractional_kelvin_voigt > self.posterior_kelvin_voigt:
-            self.fit_params = fit_fractional_kelvin_voigt(filtered_freq, filtered_PSD, self.fit_params).x
+            self.fit_params = fit_fractional_kelvin_voigt(filtered_freq, filtered_PSD, self.fit_params, log_weighted=self.log_weighted).x
         elif self.posterior_maxwell > self.posterior_fractional_kelvin_voigt and self.posterior_maxwell > self.posterior_kelvin_voigt:
-            self.fit_params = fit_maxwell(filtered_freq, filtered_PSD, self.fit_params).x
+            self.fit_params = fit_maxwell(filtered_freq, filtered_PSD, self.fit_params, log_weighted=self.log_weighted).x
         else:
-            self.fit_params = fit_kelvin_voigt(filtered_freq, filtered_PSD, self.fit_params).x
-        self.suprise = get_surprise(self.frequencies, self.PSD, self.fit_function, self.fit_params)
+            self.fit_params = fit_kelvin_voigt(filtered_freq, filtered_PSD, self.fit_params, log_weighted=self.log_weighted).x
+        self.suprise = get_surprise(self.frequencies, self.PSD, self.fit_function, self.fit_params, log_weighted=self.log_weighted)
     
     def find_peaks(self, max_iter=10, report = False):
         self.peaks = find_all_peaks(self.suprise, self.max_peak_percentage,self.typical_peak_number)
