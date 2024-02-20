@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from analyze_data import *
+from .analyze_data import *
 import numpy as np
 
 class Data:
