@@ -36,6 +36,22 @@ def simulate_trajectory(max_time,N_samples,G, args):
     time, trajectory = create_noise_with_desired_psd(PSD_function, max_time, N_samples)
     return time, trajectory
 
-
+###simulation of diffusing Harmonic potential
+def forcefield(x,x_0,k):
+    return (x_0-x)*k
+def timestep(x,force,Diffusion_particle,dt):
+    return x+force*dt+np.random.normal()*np.sqrt(2*Diffusion_particle*dt)
+def simulate_diffusing_harmonic(time,dt,k,Diffusion_particle,Diffusion_oscillator):
+    x=np.random.normal()
+    x_0=0
+    treyectory_particle=[x]
+    treyectory_oscillator=[0]
+    for i in range(int(time/dt)):
+        force=forcefield(x,x_0,k)
+        x_0+=np.random.normal()*np.sqrt(2*Diffusion_oscillator*dt)
+        x=timestep(x,force,Diffusion_particle,dt)
+        treyectory_particle.append(x)
+        treyectory_oscillator.append(x_0)
+    return treyectory_particle,treyectory_oscillator
 
     
