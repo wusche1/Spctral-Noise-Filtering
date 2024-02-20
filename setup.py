@@ -12,7 +12,6 @@ setup(
     packages=find_packages(exclude=['demos', 'data']),  # Automatically find your package and any subpackages
     install_requires=[
         'numpy==1.24.2',
-        'concurrent',
         'tqdm==4.66.1',
         'scipy==1.10.1',
         'matplotlib==3.7.1',
