@@ -12,14 +12,10 @@ setup(
     packages=find_packages(exclude=['demos', 'data']),  # Automatically find your package and any subpackages
     install_requires=[
         'numpy==1.24.2',
-        'os',
         'concurrent',
         'tqdm==4.66.1',
         'scipy==1.10.1',
-        'copy',
         'matplotlib==3.7.1',
-        'collections',
-        'sys',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',  # Choose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
