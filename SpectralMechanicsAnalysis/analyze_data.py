@@ -1,7 +1,7 @@
 import numpy as np
 #import minimize
 from scipy.optimize import minimize
-from .models import G_Maxwell, G_Kelvin_Voigt, G_fractional_Kelvin_Voigt, PSD
+from models import G_Maxwell, G_Kelvin_Voigt, G_fractional_Kelvin_Voigt, PSD
 from collections import Counter
 import copy
 
@@ -69,16 +69,20 @@ def initial_guess_maxwell(x_data, y_data):
     for x,y in zip(x_data[:10], y_data[:10]):
         A_guesses.append(y*x**2/2)
     A = np.mean(A_guesses)
-    return np.array([A, 1,noise])
+    params = np.array([A, 1,noise])
+    return params
 def fit_maxwell(x_data, y_data, initial_guess = None, log_weighted = False):
     if initial_guess is None:
         initial_guess = initial_guess_maxwell(x_data, y_data)
+    initial_guess = np.log(initial_guess)
     def target_funciton(x,*params):
+        params = np.exp(params)
         return PSD(x,G_Maxwell,params)
     result = minimize(lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted=log_weighted), 
                   initial_guess, 
                   method='Nelder-Mead')
-    return result
+    fitted_params = np.exp(result.x)
+    return fitted_params
 def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
     noise = np.mean(y_data[-10:])
     B_over_A_square_2 = np.mean(y_data[:10])
@@ -96,15 +100,19 @@ def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
     B=2/offset
     A = 1/np.sqrt(0.5*B_over_A_square_2/B)
 
-    return np.array([A, B, noise])
+    params = np.array([A, B, noise])
+    return params
 
 def fit_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False ):
     if initial_guess is None:
         initial_guess = initial_guess_kelvin_voigt(x_data, y_data)
+    initial_guess = np.log(initial_guess)
     def target_funciton(x,*params):
+        params = np.exp(params)
         return PSD(x,G_Kelvin_Voigt,params)
     result = minimize( lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
-    return result
+    fitted_params = np.exp(result.x)
+    return fitted_params
 def initial_guess_localy_linear_fractional_kelvin_voigt(x_data, y_data):
     quaters = np.logspace(np.log10(min(x_data)), np.log10(max(x_data)), 4)
     quater_values =  [np.mean(y_data[np.argsort(np.abs(x_data - q))[:10]]) for q in quaters]
@@ -132,20 +140,55 @@ def initial_guess_fractional_kelvin_voigt(x_data, y_data):
         alpha = 0
     return np.array([A,B,alpha,beta,noise])
 
+def sigmoid(x):
+    """
+    Compute the sigmoid function, mapping real numbers to the interval (0, 1).
+    
+    Parameters:
+    - x: A scalar or numpy array of any size.
+    
+    Returns:
+    - The sigmoid function applied to every element of x.
+    """
+    return 1 / (1 + np.exp(-x))
+
+def inverse_sigmoid(y):
+    """
+    Compute the inverse of the sigmoid function, mapping numbers from the interval (0, 1) back to real numbers.
+    
+    Parameters:
+    - y: A scalar or numpy array of any size within the interval (0, 1).
+    
+    Returns:
+    - The value x for which the sigmoid of x equals y.
+    """
+    # To avoid division by zero or log of zero, ensure y is within (0, 1)
+    y = np.clip(y, 1e-10, 1 - 1e-10)
+    return np.log(y / (1 - y))
 
 def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False):
     if initial_guess is None:
         initial_guess = initial_guess_fractional_kelvin_voigt(x_data, y_data)
     #pysical_constraints = ({'type': 'ineq', 'fun': lambda x: np.min(x)},{'type': 'ineq', 'fun': lambda x: min([1-x[2],1-x[3]])})
+    A,B,alpha,beta,noise = initial_guess
+    A = np.clip(A, 1e-10, np.inf)
+    B = np.clip(B, 1e-10, np.inf)
+    alpha = np.clip(alpha,1e-10, 1-1e-10)
+    beta = np.clip(beta, 1e-10, 1-1e-10)
+    noise = np.clip(noise, 1e-10, np.inf)
+    initial_guess = [np.log(A),np.log(B),inverse_sigmoid(alpha),inverse_sigmoid(beta),np.log(noise)]
+
     def target_funciton(x,*params):
+        params = [np.exp(params[0]),np.exp(params[1]),sigmoid(params[2]),sigmoid(params[3]),np.exp(params[4])]
         return PSD(x,G_fractional_Kelvin_Voigt,params)
     #result_COBYLA = minimize(Laplace_NLL, initial_guess, args=(x_data, y_data, target_funciton), method='COBYLA', constraints=pysical_constraints)
     result = minimize(lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
     #minimize(Laplace_NLL,initial_guess, args=(x_data, y_data, target_funciton), method='Nelder-Mead')
     #if min(result.x) < 0 or min([1-result.x[2],1-result.x[3]]) < 0:
     #    result = result_COBYLA
-    return result
-
+    fitted_params = result.x
+    fitted_params = [np.exp(fitted_params[0]),np.exp(fitted_params[1]),sigmoid(fitted_params[2]),sigmoid(fitted_params[3]),np.exp(fitted_params[4])]
+    return fitted_params
 
 
 
