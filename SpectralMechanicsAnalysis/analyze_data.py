@@ -1,7 +1,7 @@
 import numpy as np
 #import minimize
 from scipy.optimize import minimize
-from models import G_Maxwell, G_Kelvin_Voigt, G_fractional_Kelvin_Voigt, PSD
+from .models import G_Maxwell, G_Kelvin_Voigt, G_fractional_Kelvin_Voigt, PSD
 from collections import Counter
 import copy
 
