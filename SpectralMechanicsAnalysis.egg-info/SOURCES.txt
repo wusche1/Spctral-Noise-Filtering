@@ -1,0 +1,14 @@
+LICENSE
+README.md
+setup.py
+SpectralMechanicsAnalysis/MBR_calculation.py
+SpectralMechanicsAnalysis/__init__.py
+SpectralMechanicsAnalysis/analyze_data.py
+SpectralMechanicsAnalysis/data_handeling.py
+SpectralMechanicsAnalysis/models.py
+SpectralMechanicsAnalysis/simulations.py
+SpectralMechanicsAnalysis.egg-info/PKG-INFO
+SpectralMechanicsAnalysis.egg-info/SOURCES.txt
+SpectralMechanicsAnalysis.egg-info/dependency_links.txt
+SpectralMechanicsAnalysis.egg-info/requires.txt
+SpectralMechanicsAnalysis.egg-info/top_level.txt

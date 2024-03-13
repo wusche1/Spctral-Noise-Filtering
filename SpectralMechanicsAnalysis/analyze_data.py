@@ -34,6 +34,8 @@ def Laplace_NLL_array(params, x_data, y_data, function, log_weighted = False):
     if log_weighted:
         weights = 1.0 / np.arange(1, len(x_data) + 1)
     Loss = y_data / y_model + np.log(y_model)
+    #where the loss in NONE, set it to infinity
+    Loss = np.where(np.isnan(Loss), np.inf, Loss)
     NLL = Loss
     if log_weighted:
         NLL = NLL*weights
@@ -82,7 +84,9 @@ def fit_maxwell(x_data, y_data, initial_guess = None, log_weighted = False):
                   initial_guess, 
                   method='Nelder-Mead')
     fitted_params = np.exp(result.x)
-    return fitted_params
+    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    return fitted_params, param_uncertainties
+
 def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
     noise = np.mean(y_data[-10:])
     B_over_A_square_2 = np.mean(y_data[:10])
@@ -106,13 +110,16 @@ def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
 def fit_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False ):
     if initial_guess is None:
         initial_guess = initial_guess_kelvin_voigt(x_data, y_data)
+    # initial_guess set to 0 where it is negative
+    initial_guess = np.maximum(0, initial_guess)
     initial_guess = np.log(initial_guess)
     def target_funciton(x,*params):
         params = np.exp(params)
         return PSD(x,G_Kelvin_Voigt,params)
     result = minimize( lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
     fitted_params = np.exp(result.x)
-    return fitted_params
+    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    return fitted_params, param_uncertainties
 def initial_guess_localy_linear_fractional_kelvin_voigt(x_data, y_data):
     quaters = np.logspace(np.log10(min(x_data)), np.log10(max(x_data)), 4)
     quater_values =  [np.mean(y_data[np.argsort(np.abs(x_data - q))[:10]]) for q in quaters]
@@ -188,7 +195,8 @@ def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None, log_weight
     #    result = result_COBYLA
     fitted_params = result.x
     fitted_params = [np.exp(fitted_params[0]),np.exp(fitted_params[1]),sigmoid(fitted_params[2]),sigmoid(fitted_params[3]),np.exp(fitted_params[4])]
-    return fitted_params
+    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    return fitted_params, param_uncertainties
 
 
 
