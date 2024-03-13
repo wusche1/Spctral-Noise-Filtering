@@ -84,7 +84,7 @@ def fit_maxwell(x_data, y_data, initial_guess = None, log_weighted = False):
                   initial_guess, 
                   method='Nelder-Mead')
     fitted_params = np.exp(result.x)
-    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    param_uncertainties = None#np.sqrt(np.diag(result.hess_inv))
     return fitted_params, param_uncertainties
 
 def initial_guess_kelvin_voigt(x_data, y_data, log_weighted = False):
@@ -118,7 +118,7 @@ def fit_kelvin_voigt(x_data, y_data, initial_guess = None, log_weighted = False 
         return PSD(x,G_Kelvin_Voigt,params)
     result = minimize( lambda params: Laplace_NLL(params, x_data, y_data, target_funciton, log_weighted = log_weighted), initial_guess, method='Nelder-Mead')
     fitted_params = np.exp(result.x)
-    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    param_uncertainties = None#np.sqrt(np.diag(result.hess_inv))
     return fitted_params, param_uncertainties
 def initial_guess_localy_linear_fractional_kelvin_voigt(x_data, y_data):
     quaters = np.logspace(np.log10(min(x_data)), np.log10(max(x_data)), 4)
@@ -195,7 +195,7 @@ def fit_fractional_kelvin_voigt(x_data, y_data, initial_guess = None, log_weight
     #    result = result_COBYLA
     fitted_params = result.x
     fitted_params = [np.exp(fitted_params[0]),np.exp(fitted_params[1]),sigmoid(fitted_params[2]),sigmoid(fitted_params[3]),np.exp(fitted_params[4])]
-    param_uncertainties = np.sqrt(np.diag(result.hess_inv))
+    param_uncertainties = None#np.sqrt(np.diag(result.hess_inv))
     return fitted_params, param_uncertainties
 
 
