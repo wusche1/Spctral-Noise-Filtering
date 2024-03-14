@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from .analyze_data import *
 import numpy as np
+import dill as pickle
 
 class Data:
     def __init__(self, t, x, name=None, typical_peak_number = 0.05, max_peak_percentage = .95,prior_maxwell=1/3, prior_kelvin_voigt=1/3, prior_fractional_kelvin_voigt=1/3, log_weighted = False, unweighted_postfit = False):
@@ -232,8 +233,18 @@ class Data:
         self.reconstructed_x = np.real(reconstructed_trajectory)/np.sqrt(dt/len(self.x))
         self.reconstructed_PSD = powerspectrum(self.reconstructed_x, dt)[1]
         return
-    
+    def create_activity_filtered_PSD(self, E_0):
+        active_Energy_in_kb_T = self.frequencies**-1 * E_0
+        self.activity_filtered_PSD = self.reconstructed_PSD*(1/(1+ active_Energy_in_kb_T))
 
+        #self.activity_filtered_fit_params, self.activity_filtered_param_sigma = fit_maxwell(self.frequencies, self.activity_filtered_PSD, self.fit_params, log_weighted=self.log_weighted)
+        if self.posterior_fractional_kelvin_voigt > self.posterior_maxwell and self.posterior_fractional_kelvin_voigt > self.posterior_kelvin_voigt:
+            self.activity_filtered_fit_params, self.activity_filtered_param_sigma = fit_fractional_kelvin_voigt(self.frequencies, self.activity_filtered_PSD, self.fit_params, log_weighted=self.log_weighted)
+        
+        elif self.posterior_maxwell > self.posterior_fractional_kelvin_voigt and self.posterior_maxwell > self.posterior_kelvin_voigt:
+            self.activity_filtered_fit_params, self.activity_filtered_param_sigma = fit_maxwell(self.frequencies, self.activity_filtered_PSD, self.fit_params, log_weighted=self.log_weighted)
+        else:
+            self.activity_filtered_fit_params, self.activity_filtered_param_sigma = fit_kelvin_voigt(self.frequencies, self.activity_filtered_PSD, self.fit_params, log_weighted=self.log_weighted)
 
 
         
@@ -320,3 +331,25 @@ class Data:
                 self.posterior_maxwell = None
                 self.posterior_kelvin_voigt = None
                 self.posterior_fractional_kelvin_voigt = None
+    def save(self, destination):
+        """
+        Save the Data object to a file.
+
+        Args:
+            destination (str): Path to the file where the object will be saved.
+        """
+        with open(destination, 'wb') as f:
+            pickle.dump(self, f)
+def load_data(source):
+    """
+    Load a saved Data object from a file.
+
+    Args:
+        source (str): Path to the file where the object is saved.
+
+    Returns:
+        Data: The loaded Data object.
+    """
+    with open(source, 'rb') as f:
+        data = pickle.load(f)
+    return data

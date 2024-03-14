@@ -182,3 +182,6 @@ def analytical_mean_back_realxation(dt,time,k,Diffusion_particle,Diffusion_oscil
     prefactor=1/2*(1-Diffusion_oscillator/Diffusion_particle)
     analytical_mbr=[prefactor*(1-np.exp(-k*t)) for t in time_list]
     return analytical_mbr
+
+def E_0_over_kb_T(longtime_MBR):
+    return longtime_MBR*(-96.575)+46.93
