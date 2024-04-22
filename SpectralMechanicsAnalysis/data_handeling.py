@@ -203,36 +203,37 @@ class Data:
             if old_peaks == new_peaks:
                 return
     def create_reconstructed_data(self):
-        peak_indeces = get_peak_indices(self.peaks)
-        peak_PSD_fit = self.fit_function(self.frequencies, self.fit_params)[peak_indeces]
-        peak_PSD_draw = np.random.exponential(peak_PSD_fit)
-        dt = self.t[1] - self.t[0]
 
-        trajectory_fft = np.fft.fft(self.x)* np.sqrt(dt/ len(self.x))
-        fourier_abs = np.abs(trajectory_fft)
-        fourier_phase = np.angle(trajectory_fft)
-        fourier_abs_sq = fourier_abs**2
+            peak_indeces = get_peak_indices(self.peaks)
+            peak_PSD_fit = self.fit_function(self.frequencies, self.fit_params)[peak_indeces]
+            peak_PSD_draw = np.random.exponential(peak_PSD_fit)
+            dt = self.t[1] - self.t[0]
 
-        peak_forward = peak_indeces + 1
-        peak_backward= -1*peak_indeces + (len(fourier_abs)-1)
+            trajectory_fft = np.fft.fft(self.x)/ np.sqrt(len(self.x))
+            fourier_abs = np.abs(trajectory_fft)
+            fourier_phase = np.angle(trajectory_fft)
+            fourier_abs_sq = fourier_abs**2
 
-        assert (
-            np.allclose(self.PSD[peak_indeces], fourier_abs_sq[peak_forward], rtol=0.1) and
-            np.allclose(self.PSD[peak_indeces], fourier_abs_sq[peak_backward], rtol=0.1)
-        ), "Fourier transform and PSD do not match within 10% tolerance"
+            peak_forward = peak_indeces + 1
+            peak_backward= -1*peak_indeces + (len(fourier_abs)-1)
 
-        fourier_abs[peak_forward] = np.sqrt(peak_PSD_draw)
-        fourier_abs[peak_backward] = np.sqrt(peak_PSD_draw)
+            assert (
+                np.allclose(self.PSD[peak_indeces], fourier_abs_sq[peak_forward], rtol=0.1) and
+                np.allclose(self.PSD[peak_indeces], fourier_abs_sq[peak_backward], rtol=0.1)
+            ), "Fourier transform and PSD do not match within 10% tolerance"
 
-        fourier_abs * fourier_abs
+            fourier_abs[peak_forward] = np.sqrt(peak_PSD_draw)
+            fourier_abs[peak_backward] = np.sqrt(peak_PSD_draw)
 
-        reconstructed_trajectory =np.fft.ifft(fourier_abs * np.exp(1j*fourier_phase))
-        assert np.max(np.imag(reconstructed_trajectory)) < 1e-15, "Imaginary part of reconstructed trajectory is not neglegible"
+            fourier_abs = fourier_abs *np.sqrt(dt)
+
+            reconstructed_trajectory =np.fft.ifft(fourier_abs * np.exp(1j*fourier_phase))
+            assert np.max(np.imag(reconstructed_trajectory)) < 1e-15, "Imaginary part of reconstructed trajectory is not neglegible"
 
 
-        self.reconstructed_x = np.real(reconstructed_trajectory)/np.sqrt(dt/len(self.x))
-        self.reconstructed_PSD = powerspectrum(self.reconstructed_x, dt)[1]
-        return
+            self.reconstructed_x = np.real(reconstructed_trajectory)/np.sqrt(dt/len(self.x))
+            self.reconstructed_PSD = powerspectrum(self.reconstructed_x, dt)[1]
+            return
     def create_activity_filtered_PSD(self, E_0):
         active_Energy_in_kb_T = self.frequencies**-1 * E_0
         self.activity_filtered_PSD = self.reconstructed_PSD*(1/(1+ active_Energy_in_kb_T))
@@ -263,7 +264,7 @@ class Data:
             ax = plt.gca()
 
         # Plot the PSD
-        ax.scatter(self.frequencies, self.PSD, label='PSD', s=0.5)
+        ax.scatter(self.frequencies, self.PSD, s=0.5)
 
         # Generate logarithmically spaced frequencies
         log_spaced_freqs = log_spaced_frequencies(self.frequencies)
@@ -306,31 +307,6 @@ class Data:
             ax = plt.gca()
 
         ax.plot(self.t, self.x)
-        class Data:
-            def __init__(self, t, x, name=None, prior_maxwell=1/3, prior_kelvin_voigt=1/3, prior_fractional_kelvin_voigt=1/3):
-                self.t = t
-                self.x = x
-                self.name = name
-                self.PSD = None
-                self.frequencies = None
-
-                self.initial_guess_maxwell = None
-                self.fit_maxwell = None
-                self.NLL_maxwell = None
-                self.initial_guess_kelvin_voigt = None
-                self.fit_kelvin_voigt = None
-                self.NLL_kelvin_voigt = None
-                self.initial_guess_fractional_kelvin_voigt = None
-                self.fit_fractional_kelvin_voigt = None
-                self.NLL_fractional_kelvin_voigt = None
-
-                self.prior_maxwell = prior_maxwell
-                self.prior_kelvin_voigt = prior_kelvin_voigt
-                self.prior_fractional_kelvin_voigt = prior_fractional_kelvin_voigt
-
-                self.posterior_maxwell = None
-                self.posterior_kelvin_voigt = None
-                self.posterior_fractional_kelvin_voigt = None
     def save(self, destination):
         """
         Save the Data object to a file.

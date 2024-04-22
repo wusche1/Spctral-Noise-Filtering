@@ -21,7 +21,7 @@ def powerspectrum(trajectory, dt, k_max=None):
     truncated_fft = trajectory_fft[frequncy_indeces]
     
     # Compute the power spectrum
-    power_spectrum =dt* np.abs(truncated_fft)**2 /len(trajectory)
+    power_spectrum = np.abs(truncated_fft)**2 /len(trajectory)
 
         
     return f_ks, power_spectrum
