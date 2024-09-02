@@ -17,4 +17,5 @@ Understanding the mechanical properties of biological materials is crucial for m
 ## Getting Started
 
 pip install git+https://github.com/wusche1/SpectralMechanicsAnalysis.git 
+
 from SpectralMechanicsAnalysis import ...
